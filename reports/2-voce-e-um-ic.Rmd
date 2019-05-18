@@ -1,6 +1,6 @@
 ---
-title: "Implementando ICs"
-author: "Nazareno"
+title: "Implementando ICs com amostras do Last.fm"
+author: "Nazareno e Lívia"
 output:
   html_document:
     theme: readable
@@ -40,10 +40,71 @@ glimpse(samples_lastfm)
 Utilizaremos ICs para estimar duas métricas sobre os usuários do LastFM em geral durante um período de 6 meses. Em ambos os casos faremos isso a partir de uma amostra de 300 usuários. As duas métricas são: 
 
 1. Qual a proporção de novos artistas escutados pelos usuários
-2. Para os usuários que gostam de música muito pop (mediana_pop > 5), qual a correlação entre a popularidade mediana dos artistas escutado e a proporção dos artistas escutados que eram novos. 
+
 
 ```{r}
-samples_lastfm %>% mutate(prop_novos = news/(news+old)) %>% summarise(mean_prop = mean(prop_novos))
+set.seed(1998)
+news_df = samples_lastfm %>% mutate(prop_news = news/(news+old))
+news_theta_c = news_df %>% pull(prop_news) %>% mean()
+news_theta_c
+```
+
+```{r}
+samples_news = function(df, n) {
+  df %>%
+    select(news, old) %>% 
+    mutate(theta_c = (news/(news+old)))
+}
+
+
+thetas = samples_news(samples_lastfm)
+thetas
+iterations = 10000 # pelo menos 2000, mas mais não faz mal.
+
+bootstrap_step <- function(x){
+  selected_data = x %>% pull(theta_c)
+  boot_x <- sample(selected_data,           # amostre dos dados
+                   size = NROW(x), # tamanho igual ao recebido
+                   replace = TRUE) # aqui é o bootstrap
+  return(mean(boot_x))
+}
+
+bootstrap_step(thetas)
+
+```
+```{r}
+reamostragens = tibble(i = 1:iterations) %>% 
+  mutate(theta_c_s = map_dbl(i, ~ bootstrap_step(thetas)))
+
+reamostragens
+```
+
+
+```{r}
+reamostragens %>%
+  ggplot(aes(x = theta_c_s)) +
+  geom_histogram(binwidth = .002,
+                 colour = "darkorange",
+                 fill = "white")+
+  geom_vline(xintercept = news_theta_c,
+             color = "blue",
+             size = 1.2)
+
+reamostragens %>%
+  ggplot(aes(x = theta_c_s - news_theta_c)) +
+  geom_histogram(binwidth = .002,
+                 colour = "darkblue",
+                 fill = "white")
+```
+
+2. Para os usuários que gostam de música muito pop (mediana_pop > 5), qual a correlação entre a popularidade mediana dos artistas escutados e a proporção dos artistas escutados que eram novos. 
+
+```{r}
+gg = news_df %>% filter(mediana_pop>5) 
+cor(select(news_df, mediana_pop),  select(news_df,prop_news)) #-0,05679804
+  gg %>% ggplot(aes(x=mediana_pop, y=prop_news)) + geom_point()
+
+
 
 ```
 
