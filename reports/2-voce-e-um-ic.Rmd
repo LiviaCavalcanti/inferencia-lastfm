@@ -16,6 +16,8 @@ output:
 ```{r setup, include=FALSE, message=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
+library(tidyverse)
+library(broom)
 theme_set(theme_bw())
 ```
 
@@ -109,15 +111,13 @@ return(x %>%
 booted=boot(data = samples_lastfm, statistic=bootstrap_step,R = iterations)
 
 ```
+
 ```{r}
 
-library(tidyverse)
-library(broom)
-library(ggbeeswarm)
-library(gridExtra)
+
 tidy(booted, 
           conf.level = .95,
-          conf.method = "bca",
+          conf.method = "perc",
           conf.int = TRUE)
 ```
 
