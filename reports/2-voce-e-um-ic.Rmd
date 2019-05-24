@@ -88,7 +88,7 @@ reamostragens %>%
   ggplot(aes(x = theta_c_s)) +
   geom_histogram(binwidth = .002,
                  colour = "darkorange",
-                 fill = "white")+
+                 fill = "white") +
   geom_vline(xintercept = news_theta_c,
              color = "blue",
              size = 1.2)
@@ -99,6 +99,7 @@ reamostragens %>%
                  colour = "darkblue",
                  fill = "white")
 ```
+Fazendo o bootstrap manualmente, percebe-se que a maior parte dos dados se encontra entre 0.235 e 0.255. Indicando que a maioria das pessoas escutou, no período da coleta dos dados, ou seja, nessa amostra, para o total de artistas escutados, 25% são artistas novos.
 *Usando biblioteca*
 ```{r}
 iterations=10000
@@ -109,7 +110,15 @@ return(x %>%
         pull(theta_c))
   
 }
-booted=boot(data = samples_lastfm, statistic=bootstrap_step,R = iterations)
+
+bootstrap_step_summarise <- function(x, i){
+return(x %>%
+        slice(i) %>%
+        summarise(theta_c = mean(news/(news+old))) %>%
+        pull(theta_c))
+  
+}
+booted=boot(data = samples_lastfm, statistic=bootstrap_step_summarise,R = iterations)
 
 ```
 
@@ -121,11 +130,18 @@ booted_t = tidy(booted,
 ```
 
 ```{r}
+booted
+```
+
+```{r}
 booted_t %>%
   ggplot(aes(x = statistic)) +
   geom_histogram(binwidth = .05,
                  colour = "darkorange",
-                 fill = "white")
+                 fill = "white") +
+  geom_vline(xintercept = news_theta_c,
+             color = "blue",
+             size = 1.2)
 ```
 
 #### Para os usuários que gostam de música muito pop (mediana_pop > 5), qual a correlação entre a popularidade mediana dos artistas escutados e a proporção dos artistas escutados que eram novos. 
