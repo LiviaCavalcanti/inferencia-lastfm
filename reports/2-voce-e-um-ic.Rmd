@@ -18,6 +18,7 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(tidyverse)
 library(broom)
+library(boot)
 theme_set(theme_bw())
 ```
 
@@ -41,7 +42,7 @@ glimpse(samples_lastfm)
 
 Utilizaremos ICs para estimar duas métricas sobre os usuários do LastFM em geral durante um período de 6 meses. Em ambos os casos faremos isso a partir de uma amostra de 300 usuários. As duas métricas são: 
 
-1. Qual a proporção de novos artistas escutados pelos usuários
+#### Qual a proporção de novos artistas escutados pelos usuários
 
 
 ```{r}
@@ -50,7 +51,7 @@ news_df = samples_lastfm %>% mutate(prop_news = news/(news+old))
 news_theta_c = news_df %>% pull(prop_news) %>% mean()
 news_theta_c
 ```
-
+*Manualmente*
 ```{r}
 samples_news = function(df, n) {
   df %>%
@@ -98,7 +99,7 @@ reamostragens %>%
                  colour = "darkblue",
                  fill = "white")
 ```
-
+*Usando biblioteca*
 ```{r}
 iterations=10000
 bootstrap_step <- function(x, i){
@@ -113,15 +114,21 @@ booted=boot(data = samples_lastfm, statistic=bootstrap_step,R = iterations)
 ```
 
 ```{r}
-
-
-tidy(booted, 
+booted_t = tidy(booted, 
           conf.level = .95,
           conf.method = "perc",
           conf.int = TRUE)
 ```
 
-2. Para os usuários que gostam de música muito pop (mediana_pop > 5), qual a correlação entre a popularidade mediana dos artistas escutados e a proporção dos artistas escutados que eram novos. 
+```{r}
+booted_t %>%
+  ggplot(aes(x = statistic)) +
+  geom_histogram(binwidth = .05,
+                 colour = "darkorange",
+                 fill = "white")
+```
+
+#### Para os usuários que gostam de música muito pop (mediana_pop > 5), qual a correlação entre a popularidade mediana dos artistas escutados e a proporção dos artistas escutados que eram novos. 
 
 ```{r}
 gg = news_df %>% filter(mediana_pop>5) 
