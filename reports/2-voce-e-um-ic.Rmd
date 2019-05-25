@@ -62,18 +62,15 @@ samples_news = function(df, n) {
 
 thetas = samples_news(samples_lastfm)
 thetas
-iterations = 10000 # pelo menos 2000, mas mais não faz mal.
+iterations = 10000
 
 bootstrap_step <- function(x){
   selected_data = x %>% pull(theta_c)
-  boot_x <- sample(selected_data,           # amostre dos dados
-                   size = NROW(x), # tamanho igual ao recebido
-                   replace = TRUE) # aqui é o bootstrap
+  boot_x <- sample(selected_data,           
+                   size = NROW(x), 
+                   replace = TRUE) 
   return(mean(boot_x))
 }
-
-bootstrap_step(thetas)
-
 ```
 ```{r}
 reamostragens = tibble(i = 1:iterations) %>% 
@@ -87,22 +84,29 @@ reamostragens
 reamostragens %>%
   ggplot(aes(x = theta_c_s)) +
   geom_histogram(binwidth = .002,
-                 colour = "darkorange",
-                 fill = "white") +
+                 colour = "purple",
+                 fill = "purple",
+                 alpha=.6) +
   geom_vline(xintercept = news_theta_c,
-             color = "blue",
+             color = "grey",
              size = 1.2)
 
 reamostragens %>%
   ggplot(aes(x = theta_c_s - news_theta_c)) +
   geom_histogram(binwidth = .002,
-                 colour = "darkblue",
-                 fill = "white")
+                 colour = "purple",
+                 fill = "purple",
+                 alpha=.6) +
+  labs(x="Diferença", y="")
 ```
-Fazendo o bootstrap manualmente, percebe-se que a maior parte dos dados se encontra entre 0.235 e 0.255. Indicando que a maioria das pessoas escutou, no período da coleta dos dados, ou seja, nessa amostra, para o total de artistas escutados, 25% são artistas novos.
+
+Fazendo o bootstrap manualmente, percebe-se que a maior parte dos dados se encontra entre 0.235 e 0.255. Indicando que a maioria das pessoas escutou, no período da coleta dos dados, ou seja, nessa amostra, para o total de artistas escutados, 25% de artistas novos. 
+
+Pelo segundo gráfico, percebe-se que a reamostragem manteve os dados muito parecidos com a amostra original, já que a diferença entre os parâmetros desta com o conjunto de reamostras foi baixa.
+
 *Usando biblioteca*
+
 ```{r}
-iterations=10000
 bootstrap_step <- function(x, i){
 return(x %>%
         slice(i) %>%
@@ -118,40 +122,87 @@ return(x %>%
         pull(theta_c))
   
 }
-booted=boot(data = samples_lastfm, statistic=bootstrap_step_summarise,R = iterations)
+booted=boot(data = samples_lastfm, statistic=bootstrap_step, R = iterations)
 
 ```
+
+Usando a biblioteca _boot_, os resultados são muito semelhantes dos anteriormente vistos. 
+
+O método nos leva a considerar que, provavelmente, os usuários têm o hábito de diversificar os artistas escutados com a razão de um um quarto.
 
 ```{r}
 booted_t = tidy(booted, 
           conf.level = .95,
           conf.method = "perc",
           conf.int = TRUE)
-```
 
-```{r}
-booted
-```
-
-```{r}
 booted_t %>%
   ggplot(aes(x = statistic)) +
   geom_histogram(binwidth = .05,
-                 colour = "darkorange",
-                 fill = "white") +
+                 colour = "purple",
+                 fill = "purple",
+                 alpha=.6) +
   geom_vline(xintercept = news_theta_c,
-             color = "blue",
+             color = "grey",
+             size = 1.2) +
+  labs(x="Proporção de artistas novos", y="")
+```
+
+
+```{r}
+boot(data = samples_lastfm, statistic=bootstrap_step_summarise,R = iterations)
+```
+
+
+
+
+
+#### Para os usuários que gostam de música muito pop (mediana_pop > 5), qual a correlação entre a popularidade mediana dos artistas escutados e a proporção dos artistas escutados que eram novos. 
+Apesar do resultado ser negativo, sua magnitude é baixa (0,06044479), quase igual a zero. Pelo gráfico de dispesão, vê-se uma distribuição que remete à aleatoriedade. 
+```{r}
+pop_users = news_df %>% filter(mediana_pop>5) 
+correlation = cor(select(news_df, mediana_pop),  select(news_df,prop_news)) #-0,05679804
+  pop_users %>% ggplot(aes(x=mediana_pop, y=prop_news), color = "purple", alpha=.6) + geom_point() + labs(x="Popularidade mediana dos artistas escutados", y="Proporção de artistas novos em relação aos antigos")
+
+```
+
+Vamos verificar se isso também acontecerá com as amostras obtidas por meio do bootstrap.
+```{r}
+cor_step <- function(x){
+  amostra_x = sample_n(x, size = NROW(x), replace = TRUE) 
+  return(cor(amostra_x$prop_news, amostra_x$mediana_pop))
+}
+
+reamostragens = tibble(i = 1:10000) %>% 
+  mutate(theta_pop = map_dbl(i, ~ cor_step(pop_users)))
+
+reamostragens %>%
+  ggplot(aes(x = theta_pop)) +
+  geom_histogram(binwidth = .02,
+                 colour = "purple",
+                 fill = "purple",
+                 alpha=.6) +
+  geom_vline(xintercept = correlation,
+             color = "grey",
              size = 1.2)
 ```
 
-#### Para os usuários que gostam de música muito pop (mediana_pop > 5), qual a correlação entre a popularidade mediana dos artistas escutados e a proporção dos artistas escutados que eram novos. 
+
 
 ```{r}
-gg = news_df %>% filter(mediana_pop>5) 
-cor(select(news_df, mediana_pop),  select(news_df,prop_news)) #-0,05679804
-  gg %>% ggplot(aes(x=mediana_pop, y=prop_news)) + geom_point()
-
-
+cor_step <- function(x, i){
+  temp = pop_users %>%
+        slice(i)  %>%
+    mutate(prop = news/(news+old)) 
+     return(cor(temp$mediana_pop, temp$prop))
+}
+boot_lib = boot(data = pop_users, statistic=cor_step,R = 10000)
+tidy(boot_lib, conf.level = .95,conf.method = "perc",conf.int = TRUE)
 
 ```
 
+Podemos ver que, tanto para a análise manual quanto para a utilizando biblioteca, os parâmtros das amostras estão muito próximo de zero. Logo, conclui-se que não há correlação entre as variáveis, ou seja, escutar artistas muito populares não está correlacionado com o proporção de artistas novos, em relação aos antigos, escutados.
+
+
+
+_Based on_: https://github.com/cienciadedados-ufcg/inferencia-iat-scores/blob/master/reports/analise-um-lab.Rmd
